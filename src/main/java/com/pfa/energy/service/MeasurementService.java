@@ -1,30 +1,49 @@
-// src/main/java/com/pfa/energy/service/MeasurementService.java
 package com.pfa.energy.service;
-import com.pfa.energy.dto.MeasurementDto;
-import com.pfa.energy.model.iot.*;
-import com.pfa.energy.repository.*;
+
+import com.pfa.energy.dto.iot.MeasurementRequest;
+import com.pfa.energy.dto.iot.MeasurementResponse;
+import com.pfa.energy.model.iot.Measurement;
+import com.pfa.energy.model.iot.Sensor;
+import com.pfa.energy.repository.MeasurementRepository;
+import com.pfa.energy.repository.SensorRepository;
+import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import java.time.Instant; import java.time.LocalDateTime; import java.util.UUID;
 
-@Service @RequiredArgsConstructor @Transactional
+import java.time.Instant;
+
+@Service
+@RequiredArgsConstructor
 public class MeasurementService {
-    private final RoomRepository roomRepo;
-    private final SensorRepository sensorRepo;
-    private final MeasurementRepository measRepo;
 
-    public void ingest(MeasurementDto dto) {
-        var room = roomRepo.findByName(dto.room())
-                .orElseGet(() -> roomRepo.save(new Room(UUID.randomUUID(), dto.room())));
-        var sensor = sensorRepo.findByRoomAndType(room,"CURRENT")
-                .orElseGet(() -> sensorRepo.save(new Sensor(
-                        UUID.randomUUID(),room,"CURRENT","ct-001",LocalDateTime.now())));
-        var m = new Measurement();
+    private final MeasurementRepository measRepo;
+    private final SensorRepository sensorRepo;
+
+    @Transactional
+    public MeasurementResponse save(MeasurementRequest req) {
+
+        // Cherche le capteur par UUID
+        Sensor sensor = sensorRepo.findById(req.sensorId())
+                .orElseThrow(() -> new EntityNotFoundException(
+                        "Capteur %s introuvable".formatted(req.sensorId())));
+
+        // Crée la mesure
+        Measurement m = new Measurement();
         m.setSensor(sensor);
-        m.setValue(dto.current());
-        m.setUnit("A");
-        m.setTakenAt(Instant.ofEpochSecond(dto.timestamp()));
+        m.setValue(req.value());
+        m.setUnit(req.unit());
+        m.setTakenAt(Instant.now());
+
         measRepo.save(m);
+
+        // Mapper la réponse
+        return new MeasurementResponse(
+                m.getId(),
+                sensor.getId(),
+                m.getValue(),
+                m.getUnit(),
+                m.getTakenAt()
+        );
     }
 }

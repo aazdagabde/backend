@@ -6,15 +6,20 @@ import java.time.LocalDateTime;
 import java.util.UUID;
 
 @Entity @Getter @Setter @NoArgsConstructor
-@Table(name="sensors")
+@Table(name = "sensors")
 public class Sensor {
     @Id private UUID id = UUID.randomUUID();
-    @ManyToOne(fetch=FetchType.LAZY) @JoinColumn(nullable=false)
+
+    @ManyToOne(fetch = FetchType.LAZY)                // 🔗 vers la salle
+    @JoinColumn(nullable = false)
     private Room room;
-    @Column(nullable=false) private String type;
-    @Column(nullable=false) private String ref;
+
+    @Column(nullable = false) private String type;    // e.g. “CURRENT”, “TEMP”
+    @Column(nullable = false) private String ref;     // référence matérielle
     private LocalDateTime installedAt;
-    public Sensor(UUID id,Room r,String t,String ref,LocalDateTime ts){
-        this.id=id;this.room=r;this.type=t;this.ref=ref;this.installedAt=ts;
+
+    public Sensor(UUID id, Room room, String type, String ref, LocalDateTime ts) {
+        this.id = id; this.room = room; this.type = type; this.ref = ref; this.installedAt = ts;
     }
 }
+

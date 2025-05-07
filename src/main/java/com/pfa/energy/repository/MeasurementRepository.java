@@ -5,6 +5,4 @@ import com.pfa.energy.model.iot.Room;
 import org.springframework.data.jpa.repository.JpaRepository;
 import java.util.List;
 
-public interface MeasurementRepository extends JpaRepository<Measurement,Long> {
-    List<Measurement> findTop100BySensorRoomOrderByTakenAtDesc(Room room);
-}
+public interface MeasurementRepository extends JpaRepository<Measurement, Long> { }
