@@ -1,3 +1,7 @@
+/* ============================================================================
+ *  Security Configuration
+ *  File  : src/main/java/com/pfa/energy/config/SecurityConfig.java
+ * ---------------------------------------------------------------------------*/
 package com.pfa.energy.config;
 
 import com.pfa.energy.security.JwtFilter;
@@ -7,15 +11,14 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
 import org.springframework.security.config.Customizer;
-import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
+import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
-import org.springframework.http.HttpMethod;
 
 @Configuration
 @EnableMethodSecurity
@@ -33,31 +36,35 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
-                // Désactiver CSRF, on utilise JWT
+                // Désactive CSRF car on utilise un token JWT
                 .csrf(csrf -> csrf.disable())
-                // CORS par défaut
+                // Active la configuration CORS par défaut
                 .cors(Customizer.withDefaults())
-                // Stateless, pas de session
-                .sessionManagement(sm ->
-                        sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS)
-                )
-                // Autoriser register/login, tout le reste requiert authentification
+                // Pas de session : chaque requête doit porter son propre token
+                .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+
+                // Règles d'autorisation :
+                //   - /api/device/**  : public (ESP, Postman, etc.)
+                //   - /api/auth/**    : public (login, register, refresh)
+                //   - le reste        : nécessite un JWT valide
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers(HttpMethod.OPTIONS, "/api/device/measurements")
-                        .permitAll()     // ← ici on lève la protection
-
+                        .requestMatchers("/api/device/**").permitAll()
                         .requestMatchers("/api/auth/**").permitAll()
-                        .anyRequest().authenticated())
+                        .anyRequest().authenticated()
+                )
 
-                // Notre provider DAO
+                // Provider DAO + BCrypt
                 .authenticationProvider(daoAuthenticationProvider())
-                // Filtre JWT avant le filtre username/password
-                .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class);
 
+                // Intercale le filtre JWT avant UsernamePasswordAuthenticationFilter
+                .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
     }
 
+    /**
+     * Provider d'authentification basé sur la table users (CustomUserDetailsService)
+     */
     @Bean
     public DaoAuthenticationProvider daoAuthenticationProvider() {
         DaoAuthenticationProvider provider = new DaoAuthenticationProvider();
@@ -66,16 +73,20 @@ public class SecurityConfig {
         return provider;
     }
 
-    // Permet à AuthService de s’authentifier
+    /**
+     * Expose l'AuthenticationManager pour le service d'authentification (login)
+     */
     @Bean
-    public AuthenticationManager authenticationManager(
-            AuthenticationConfiguration authConfig
-    ) throws Exception {
-        return authConfig.getAuthenticationManager();
+    public AuthenticationManager authenticationManager(AuthenticationConfiguration authCfg) throws Exception {
+        return authCfg.getAuthenticationManager();
     }
 
+    /**
+     * BCrypt, cost par défaut (10). Tu peux augmenter si besoin.
+     */
     @Bean
     public PasswordEncoder passwordEncoder() {
         return new BCryptPasswordEncoder();
     }
 }
+
